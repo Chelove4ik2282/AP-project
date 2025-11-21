@@ -1,102 +1,32 @@
 [
-  {
-    "id": 1,
-    "name": "Ali Hasanov",
-    "math": 85,
-    "physics": 90,
-    "english": 78,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 2,
-    "name": "Rashad Huseynov",
-    "math": 70,
-    "physics": 65,
-    "english": 80,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 3,
-    "name": "Nigar Aliyeva",
-    "math": 92,
-    "physics": 88,
-    "english": 95,
-    "main_teacher_id": 2
-  },
-  {
-    "id": 4,
-    "name": "Ali Abbasov",
-    "math": 13,
-    "physics": 48,
-    "english": 25,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 5,
-    "name": "Leyla Mammadova",
-    "math": 78,
-    "physics": 82,
-    "english": 85,
-    "main_teacher_id": 2
-  },
-  {
-    "id": 6,
-    "name": "Kamran Safarov",
-    "math": 66,
-    "physics": 71,
-    "english": 69,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 7,
-    "name": "Aysel Karimova",
-    "math": 91,
-    "physics": 89,
-    "english": 94,
-    "main_teacher_id": 2
-  },
-  {
-    "id": 8,
-    "name": "Murad Gurbanov",
-    "math": 58,
-    "physics": 60,
-    "english": 62,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 9,
-    "name": "Sevda Quliyeva",
-    "math": 72,
-    "physics": 75,
-    "english": 70,
-    "main_teacher_id": 2
-  },
-  {
-    "id": 10,
-    "name": "Togrul Ismayilov",
-    "math": 44,
-    "physics": 50,
-    "english": 48,
-    "main_teacher_id": 1
-  },
-  {
-    "id": 11,
-    "name": "Zhala Mehdiyeva",
-    "math": 88,
-    "physics": 84,
-    "english": 90,
-    "main_teacher_id": 2
-  },
-  {
-    "id": 12,
-    "name": "Emin Abbasli",
-    "math": 67,
-    "physics": 73,
-    "test1": 73,
-    "test2": 73,
-    "test3": 73,
-    "test4": 73,
-    "english": 65,
-    "main_teacher_id": 1
-  }
+  {"id":1,"name":"Ali Hasanov","math":85,"physics":90,"english":78,"group_id":1},
+  {"id":2,"name":"Rashad Huseynov","math":70,"physics":65,"english":80,"group_id":1},
+  {"id":3,"name":"Nigar Aliyeva","math":92,"physics":88,"english":95,"group_id":2},
+  {"id":4,"name":"Ali Abbasov","math":13,"physics":48,"english":25,"group_id":1},
+  {"id":5,"name":"Leyla Mammadova","math":78,"physics":82,"english":85,"group_id":2},
+  {"id":6,"name":"Kamran Safarov","math":66,"physics":71,"english":69,"group_id":1},
+  {"id":7,"name":"Aysel Karimova","math":91,"physics":89,"english":94,"group_id":2},
+  {"id":8,"name":"Murad Gurbanov","math":58,"physics":60,"english":62,"group_id":1},
+  {"id":9,"name":"Sevda Quliyeva","math":72,"physics":75,"english":70,"group_id":2},
+  {"id":10,"name":"Togrul Ismayilov","math":44,"physics":50,"english":48,"group_id":1},
+  {"id":11,"name":"Zhala Mehdiyeva","math":88,"physics":84,"english":90,"group_id":2},
+  {"id":12,"name":"Emin Abbasli","math":67,"physics":73,"english":65,"group_id":1},
+
+  {"id":13,"name":"Farid Mammadov","math":80,"physics":82,"english":79,"group_id":3},
+  {"id":14,"name":"Leyla Huseynova","math":91,"physics":88,"english":92,"group_id":3},
+  {"id":15,"name":"Rauf Aliyev","math":74,"physics":77,"english":70,"group_id":3},
+  {"id":16,"name":"Sana Mehdiyeva","math":85,"physics":90,"english":87,"group_id":3},
+  {"id":17,"name":"Orkhan Safarli","math":69,"physics":65,"english":72,"group_id":3},
+
+  {"id":18,"name":"Amina Gasimova","math":93,"physics":95,"english":97,"group_id":4},
+  {"id":19,"name":"Kamran Huseynov","math":80,"physics":78,"english":82,"group_id":4},
+  {"id":20,"name":"Nijat Abbasov","math":70,"physics":75,"english":68,"group_id":4},
+  {"id":21,"name":"Leyla Quliyeva","math":88,"physics":85,"english":90,"group_id":4},
+  {"id":22,"name":"Elvin Mammadli","math":65,"physics":60,"english":62,"group_id":4},
+
+  {"id":23,"name":"Tural Mehdiyev","math":78,"physics":80,"english":75,"group_id":5},
+  {"id":24,"name":"Aysel Aliyeva","math":92,"physics":89,"english":95,"group_id":5},
+  {"id":25,"name":"Emin Huseynli","math":67,"physics":70,"english":68,"group_id":5},
+  {"id":26,"name":"Nigar Safarova","math":85,"physics":88,"english":90,"group_id":5},
+  {"id":27,"name":"Murad Aliyev","math":73,"physics":75,"english":70,"group_id":5}
 ]

@@ -1,0 +1,27 @@
+[
+    {
+        "id": 1,
+        "name": "Group A",
+        "main_teacher_id": 1
+    },
+    {
+        "id": 2,
+        "name": "Group B",
+        "main_teacher_id": 1
+    },
+    {
+        "id": 3,
+        "name": "Group C",
+        "main_teacher_id": 2
+    },
+    {
+        "id": 4,
+        "name": "Group D",
+        "main_teacher_id": 2
+    },
+    {
+        "id": 5,
+        "name": "Group E",
+        "main_teacher_id": 2
+    }
+]

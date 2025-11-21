@@ -29,7 +29,7 @@ export default function LoginPage() {
       sessionStorage.setItem("currentUserId", user.id);
       sessionStorage.setItem("currentUserName", user.name);
 
-      navigate("/dashboard");
+      navigate("/groups");
     } catch (err) {
       setError("Cannot load users.json");
     }

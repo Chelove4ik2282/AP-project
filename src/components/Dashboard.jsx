@@ -1,34 +1,49 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { PencilIcon, TrashIcon, XMarkIcon, CheckIcon } from "@heroicons/react/24/solid";
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+} from "recharts";
 
 export default function Dashboard() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingStudent, setEditingStudent] = useState(null);
+  const [chartType, setChartType] = useState("bar"); // "bar" или "radar"
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
-  const currentUserId = parseInt(sessionStorage.getItem("currentUserId"));
+  const { groupId } = useParams();
   const currentUserName = sessionStorage.getItem("currentUserName");
- 
+
   useEffect(() => {
     fetch("/students.json")
       .then(res => res.json())
       .then((data) => {
-        setStudents(data.filter(s => s.main_teacher_id === currentUserId));
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
+        setStudents(data.filter(s => s.group_id === parseInt(groupId)));
         setLoading(false);
       });
-  }, [currentUserId]);
- 
+  }, [groupId]);
+
   const handleDelete = (studentId) => {
     if (window.confirm("Are you sure you want to delete this student?")) {
       setStudents(students.filter(s => s.id !== studentId));
     }
   };
- 
+
   const handleSave = () => {
     if (editingStudent) {
       setStudents(students.map(s =>
@@ -37,10 +52,74 @@ export default function Dashboard() {
       setEditingStudent(null);
     }
   };
- 
+
   const subjects = Array.from(
-    new Set(students.flatMap(s => Object.keys(s).filter(k => !['id','name','main_teacher_id'].includes(k))))
+    new Set(
+      students.flatMap(s =>
+        Object.keys(s).filter(k => !['id','name','main_teacher_id','group_id'].includes(k))
+      )
+    )
   );
+
+  // Лучший ученик по предмету
+  const topPerSubject = {};
+  subjects.forEach(subj => {
+    let maxScore = -1;
+    let topStudent = null;
+    students.forEach(s => {
+      const score = s[subj] ?? 0;
+      if (score > maxScore) {
+        maxScore = score;
+        topStudent = s.id;
+      }
+    });
+    topPerSubject[subj] = topStudent;
+  });
+
+  // Данные для BarChart (бело-серый)
+  const chartData = subjects.map(subj => {
+    const values = students.map(s => s[subj] ?? 0);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    return {
+      subject: subj,
+      average: Number(avg.toFixed(1))
+    };
+  });
+
+  // Данные для RadarChart (средний бал группы)
+  const radarData = subjects.map(subj => {
+    const values = students.map(s => s[subj] ?? 0);
+    const avg = values.reduce((a,b) => a+b,0)/values.length;
+    return {
+      subject: subj,
+      average: Number(avg.toFixed(1))
+    };
+  });
+
+  // Функция сортировки
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedStudents = [...students];
+  if (sortConfig.key) {
+    sortedStudents.sort((a,b) => {
+      let aVal = sortConfig.key === 'average'
+        ? subjects.map(sub => a[sub] ?? 0).reduce((x,y)=>x+y,0)/subjects.length
+        : a[sortConfig.key];
+      let bVal = sortConfig.key === 'average'
+        ? subjects.map(sub => b[sub] ?? 0).reduce((x,y)=>x+y,0)/subjects.length
+        : b[sortConfig.key];
+
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
 
   return (
     <div
@@ -51,8 +130,16 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-5xl bg-white/20 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/30"
+        className="w-full max-w-6xl bg-white/20 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/30"
       >
+        <div className="absolute top-4 left-10 z-50 flex items-center gap-2">
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className="w-20 object-contain drop-shadow-lg"
+          />
+        </div>
+
         <h1 className="text-3xl font-bold text-center text-white mb-6">
           Welcome, {currentUserName}
         </h1>
@@ -62,59 +149,143 @@ export default function Dashboard() {
         ) : students.length === 0 ? (
           <p className="text-white text-center">You have no students assigned.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-white border-collapse">
-              <thead>
-                <tr className="border-b border-white/30">
-                  <th className="px-4 py-2 text-left">Name</th>
-                  {subjects.map(subj => (
-                    <th key={subj} className="px-4 py-2 text-center">{subj}</th>
-                  ))}
-                  <th className="px-4 py-2 text-center">Average</th>
-                  <th className="px-4 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s, idx) => {
-                  const scores = subjects.map(subj => s[subj] ?? 0);
-                  const avg = (scores.reduce((a,b) => a+b,0) / scores.length).toFixed(1);
-
-                  return (
-                    <tr
-                      key={s.id}
-                      className={`border-b border-white/20 ${idx % 2 === 0 ? "bg-white/10" : "bg-white/5"}`}
+          <>
+            {/* Таблица */}
+            <div className="overflow-x-auto mb-6">
+              <table className="min-w-full text-white border-collapse">
+                <thead>
+                  <tr className="border-b border-white/30">
+                    <th
+                      onClick={() => requestSort("name")}
+                      className="px-4 py-2 text-left cursor-pointer select-none flex items-center gap-1"
                     >
-                      <td className="px-4 py-2">{s.name}</td>
-                      {subjects.map(subj => (
-                        <td key={subj} className="px-4 py-2 text-center">{s[subj] ?? '-'}</td>
-                      ))}
-                      <td className="px-4 py-2 text-center font-semibold">{avg}</td>
-                      <td className="px-4 py-2 text-center flex justify-center gap-2">
-                        <button
-                          onClick={() => setEditingStudent(s)}
-                          className="p-1 rounded-md transition group"
-                          title="Edit"
-                        >
-                          <PencilIcon className="w-5 h-5 text-white transition group-hover:text-gray-400" />
-                        </button>
+                      Name
+                      <span className={`text-sm ${sortConfig.key === "name" && sortConfig.direction === "asc" ? 'text-white font-bold' : 'text-white/50'}`}>▲</span>
+                      <span className={`text-sm ${sortConfig.key === "name" && sortConfig.direction === "desc" ? 'text-white font-bold' : 'text-white/50'}`}>▼</span>
+                    </th>
 
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          className="p-1 rounded-md transition group"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-5 h-5 text-white transition group-hover:text-gray-400" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    {subjects.map(subj => (
+                      <th key={subj} className="px-4 py-2 text-center">{subj}</th>
+                    ))}
+
+                    <th
+                      onClick={() => requestSort("average")}
+                      className="px-4 py-2 text-center cursor-pointer select-none flex items-center gap-1 justify-center"
+                    >
+                      Average
+                      <span className={`text-sm ${sortConfig.key === "average" && sortConfig.direction === "asc" ? 'text-white font-bold' : 'text-white/50'}`}>▲</span>
+                      <span className={`text-sm ${sortConfig.key === "average" && sortConfig.direction === "desc" ? 'text-white font-bold' : 'text-white/50'}`}>▼</span>
+                    </th>
+
+                    <th className="px-4 py-2 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedStudents.map((s, idx) => {
+                    const scores = subjects.map(subj => s[subj] ?? 0);
+                    const avg = (scores.reduce((a,b) => a+b,0) / scores.length).toFixed(1);
+
+                    return (
+                      <tr
+                        key={s.id}
+                        className={`border-b border-white/20 ${idx % 2 === 0 ? "bg-white/10" : "bg-white/5"}`}
+                      >
+                        <td className="px-4 py-2">{s.name}</td>
+
+                        {subjects.map((subj) => {
+                          const isTop = topPerSubject[subj] === s.id;
+                          return (
+                            <td
+                              key={subj}
+                              className={`px-4 py-2 text-center relative ${isTop ? 'bg-green-600/40 rounded-md font-bold' : ''}`}
+                            >
+                              {s[subj] ?? '-'}
+                              {isTop && <span className="absolute top-0 right-1 text-yellow-300 font-bold">★</span>}
+                            </td>
+                          )
+                        })}
+
+                        <td className="px-4 py-2 text-center font-semibold">{avg}</td>
+                        <td className="px-4 py-2 text-center flex justify-center gap-2">
+                          <button
+                            onClick={() => setEditingStudent(s)}
+                            className="p-1 rounded-md transition group"
+                          >
+                            <PencilIcon className="w-5 h-5 text-white group-hover:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="p-1 rounded-md transition group"
+                          >
+                            <TrashIcon className="w-5 h-5 text-white group-hover:text-gray-400" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Кнопка переключения диаграммы */}
+            <div className="flex justify-center gap-4 mb-4">
+              <button
+                onClick={() => setChartType("bar")}
+                className={`px-4 py-2 rounded-md font-semibold ${chartType === 'bar' ? 'bg-green-600 text-white' : 'bg-white/20 text-white'}`}
+              >
+                Bar Chart
+              </button>
+              <button
+                onClick={() => setChartType("radar")}
+                className={`px-4 py-2 rounded-md font-semibold ${chartType === 'radar' ? 'bg-green-600 text-white' : 'bg-white/20 text-white'}`}
+              >
+                Polygon (Radar)
+              </button>
+            </div>
+
+            {/* Диаграммы */}
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-5">
+              {chartType === "bar" ? (
+                <div className="w-full h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="4 4" stroke="#ffffff40" />
+                      <XAxis dataKey="subject" stroke="white" />
+                      <YAxis stroke="white" />
+                      <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 10 }} />
+                      <Bar dataKey="average" isAnimationActive={true}>
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill="#ffffffcc" />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="w-full h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="subject" stroke="white" />
+                      <PolarRadiusAxis stroke="white" />
+                      <Radar
+                        name="Group Average"
+                        dataKey="average"
+                        stroke="#3e3e3ecc"
+                        fill="#ffffff55"
+                        fillOpacity={0.5}
+                      />
+                      <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 10 }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </motion.div>
- 
+
+      {/* Modal редактирования */}
       {editingStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <motion.div
