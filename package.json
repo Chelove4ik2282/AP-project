@@ -1,5 +1,5 @@
 {
-  "name": "my-first-test-app",
+  "name": "academic-performance-tracker",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@tailwindcss/vite": "^4.1.14",
+    "framer-motion": "^12.23.24",
     "lucide-react": "^0.546.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-github-btn": "^1.4.0"
+    "react-github-btn": "^1.4.0",
+    "react-router-dom": "^7.9.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "name": "Ali Hasanov",
+    "math": 85,
+    "physics": 90,
+    "english": 78,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 2,
+    "name": "Rashad Huseynov",
+    "math": 70,
+    "physics": 65,
+    "english": 80,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 3,
+    "name": "Nigar Aliyeva",
+    "math": 92,
+    "physics": 88,
+    "english": 95,
+    "main_teacher_id": 2
+  },
+  {
+    "id": 4,
+    "name": "Ali Abbasov",
+    "math": 13,
+    "physics": 48,
+    "english": 25,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 5,
+    "name": "Leyla Mammadova",
+    "math": 78,
+    "physics": 82,
+    "english": 85,
+    "main_teacher_id": 2
+  },
+  {
+    "id": 6,
+    "name": "Kamran Safarov",
+    "math": 66,
+    "physics": 71,
+    "english": 69,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 7,
+    "name": "Aysel Karimova",
+    "math": 91,
+    "physics": 89,
+    "english": 94,
+    "main_teacher_id": 2
+  },
+  {
+    "id": 8,
+    "name": "Murad Gurbanov",
+    "math": 58,
+    "physics": 60,
+    "english": 62,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 9,
+    "name": "Sevda Quliyeva",
+    "math": 72,
+    "physics": 75,
+    "english": 70,
+    "main_teacher_id": 2
+  },
+  {
+    "id": 10,
+    "name": "Togrul Ismayilov",
+    "math": 44,
+    "physics": 50,
+    "english": 48,
+    "main_teacher_id": 1
+  },
+  {
+    "id": 11,
+    "name": "Zhala Mehdiyeva",
+    "math": 88,
+    "physics": 84,
+    "english": 90,
+    "main_teacher_id": 2
+  },
+  {
+    "id": 12,
+    "name": "Emin Abbasli",
+    "math": 67,
+    "physics": 73,
+    "test1": 73,
+    "test2": 73,
+    "test3": 73,
+    "test4": 73,
+    "english": 65,
+    "main_teacher_id": 1
+  }
+]

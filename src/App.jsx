@@ -1,19 +1,14 @@
-import Navbar from "./components/navbar.jsx";
-import MainPart from "./components/mainPart.jsx";
-import SecondPart from "./components/secondPart.jsx";
-import ThirdPart from "./components/thirdPart.jsx";
-import FourthPart from "./components/fourthPart.jsx";
-import FifthPart from "./components/fifthPart.jsx";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginPage from "./components/Login";
+import DashboardPage from "./components/Dashboard";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-black">
-      <Navbar />
-      <MainPart />
-      <SecondPart />
-      <ThirdPart />
-      <FourthPart />
-      <FifthPart /> 
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
