@@ -197,7 +197,7 @@ export default function Dashboard() {
                           return (
                             <td
                               key={subj}
-                              className={`px-4 py-2 text-center relative ${isTop ? 'bg-green-600/40 rounded-md font-bold' : ''}`}
+                              className={`px-4 py-2 text-center relative ${isTop ? 'bg-green-600/30 rounded-md font-bold' : ''}`}
                             >
                               {s[subj] ?? '-'}
                               {isTop && <span className="absolute top-0 right-1 text-yellow-300 font-bold">★</span>}
