@@ -2,26 +2,31 @@
     {
         "id": 1,
         "name": "Group A",
-        "main_teacher_id": 1
+        "main_teacher_id": 1,
+        "capacity": 40
     },
     {
         "id": 2,
         "name": "Group B",
-        "main_teacher_id": 1
+        "main_teacher_id": 1,
+        "capacity": 20
     },
     {
         "id": 3,
         "name": "Group C",
-        "main_teacher_id": 2
+        "main_teacher_id": 2,
+        "capacity": 20
     },
     {
         "id": 4,
         "name": "Group D",
-        "main_teacher_id": 2
+        "main_teacher_id": 2,
+        "capacity": 20
     },
     {
         "id": 5,
         "name": "Group E",
-        "main_teacher_id": 2
+        "main_teacher_id": 2,
+        "capacity": 20
     }
 ]

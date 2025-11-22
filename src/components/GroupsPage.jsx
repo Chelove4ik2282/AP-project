@@ -53,9 +53,21 @@ export default function GroupsPage() {
   };
 
   // Фильтр поиска
-  const filteredGroups = groups.filter((g) =>
-    g.name.toLowerCase().includes(search.toLowerCase())
+  const filteredGroups = groups.filter((g) => {
+  const lowerSearch = search.toLowerCase();
+
+  // поиск по названию группы
+  const matchGroupName = g.name.toLowerCase().includes(lowerSearch);
+
+  // поиск по студентам этой группы
+  const groupStudents = students.filter((s) => s.group_id === g.id);
+  const matchStudent = groupStudents.some((s) =>
+    s.name.toLowerCase().includes(lowerSearch)
   );
+
+  return matchGroupName || matchStudent;
+});
+
 
   return (
     <div
@@ -97,7 +109,7 @@ export default function GroupsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-xl mb-12">
           {filteredGroups.map((g) => {
             const count = getStudentCount(g.id);
-            const maxStudents = 20;
+            const maxStudents = g.capacity;
             const percent = Math.min((count / maxStudents) * 100, 100);
 
             return (
