@@ -28,5 +28,11 @@
         "name": "Group E",
         "main_teacher_id": 2,
         "capacity": 20
+    },
+    {
+        "id": 6,
+        "name": "Group F",
+        "main_teacher_id": 1,
+        "capacity": 23
     }
 ]

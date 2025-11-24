@@ -15,6 +15,7 @@ export default function GroupsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [allGroups, setAllGroups] = useState([]);
 
   const currentUserId = parseInt(sessionStorage.getItem("currentUserId"));
   const currentUserName = sessionStorage.getItem("currentUserName");
@@ -22,27 +23,28 @@ export default function GroupsPage() {
   const COLORS = ["#d1d5db", "#9ca3af"];
 
   useEffect(() => {
-    Promise.all([fetch("/groups.json"), fetch("/students.json")])
-      .then(async ([groupsRes, studentsRes]) => {
-        const groupsData = await groupsRes.json();
-        const studentsData = await studentsRes.json();
+  Promise.all([fetch("/groups.json"), fetch("/students.json")])
+    .then(async ([groupsRes, studentsRes]) => {
+      const groupsData = await groupsRes.json();
+      const studentsData = await studentsRes.json();
 
-        setGroups(groupsData.filter((g) => g.main_teacher_id === currentUserId));
-        setStudents(studentsData);
-        setLoading(false);
-      });
-  }, [currentUserId]);
+      setAllGroups(groupsData); 
+      setGroups(groupsData.filter((g) => g.main_teacher_id === currentUserId));
+      setStudents(studentsData);
+      setLoading(false);
+    });
+}, [currentUserId]);
+
 
   const chartData = [
     { name: "Your Groups", value: groups.length },
-    { name: "Other", value: 5 - groups.length },
+    { name: "Other", value: allGroups.length - groups.length },
   ];
 
   const getStudentCount = (groupId) => {
     return students.filter((s) => s.group_id === groupId).length;
   };
-
-  // *** NEW — avatar initials ***
+ 
   const getInitials = (name) => {
     return name
       .split(" ")
@@ -50,16 +52,13 @@ export default function GroupsPage() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-  };
-
-  // Фильтр поиска
+  }; 
+  
   const filteredGroups = groups.filter((g) => {
   const lowerSearch = search.toLowerCase();
-
-  // поиск по названию группы
+ 
   const matchGroupName = g.name.toLowerCase().includes(lowerSearch);
-
-  // поиск по студентам этой группы
+ 
   const groupStudents = students.filter((s) => s.group_id === g.id);
   const matchStudent = groupStudents.some((s) =>
     s.name.toLowerCase().includes(lowerSearch)
@@ -81,8 +80,7 @@ export default function GroupsPage() {
       <p className="text-white/70 text-sm mb-6">
         Select a group to view students
       </p>
-
-      {/* ---- SEARCH INPUT ---- */}
+ 
       <input
         type="text"
         placeholder="Search group..."
@@ -92,8 +90,7 @@ export default function GroupsPage() {
                    text-white placeholder-white/40 mb-6 backdrop-blur-xl"
       />
 
-      {loading ? (
-        /* ---- SKELETON ---- */
+      {loading ? ( 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-xl mb-12">
           {[1, 2, 3].map((i) => (
             <div
@@ -119,8 +116,7 @@ export default function GroupsPage() {
                 className="bg-white/10 backdrop-blur-xl border border-white/20 
                            p-5 rounded-xl shadow cursor-pointer 
                            hover:bg-white/20 transition-all"
-              >
-                {/* ---- AVATAR ---- */}
+              > 
                 <div
                   className="w-12 h-12 rounded-full bg-white/20 border border-white/30 
                              flex items-center justify-center text-white text-lg 
@@ -149,9 +145,8 @@ export default function GroupsPage() {
           })}
         </div>
       )}
-
-      {/* ---- DIAGRAM ---- */}
-      <div className="w-full max-w-md bg-white/10 border border-white/20 rounded-xl p-6 backdrop-blur-xl">
+ 
+      <div className="w-full max-w-xl bg-white/10 border border-white/20 rounded-xl p-6 backdrop-blur-xl">
         <h3 className="text-center text-lg text-white mb-4 font-medium">
           Your Group Distribution
         </h3>
