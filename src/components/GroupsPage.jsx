@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getDatabase, ref, get } from "firebase/database";
+import { db } from "../firebase"; // твой firebase.js
 import {
   PieChart,
   Pie,
@@ -23,18 +25,30 @@ export default function GroupsPage() {
   const COLORS = ["#d1d5db", "#9ca3af"];
 
   useEffect(() => {
-  Promise.all([fetch("/groups.json"), fetch("/students.json")])
-    .then(async ([groupsRes, studentsRes]) => {
-      const groupsData = await groupsRes.json();
-      const studentsData = await studentsRes.json();
+    async function fetchData() {
+      try {
+        const dbRef = ref(db);
 
-      setAllGroups(groupsData); 
-      setGroups(groupsData.filter((g) => g.main_teacher_id === currentUserId));
-      setStudents(studentsData);
-      setLoading(false);
-    });
-}, [currentUserId]);
+        // Получаем группы
+        const groupsSnap = await get(ref(db, "groups"));
+        const groupsData = groupsSnap.val() ? Object.values(groupsSnap.val()) : [];
 
+        // Получаем студентов
+        const studentsSnap = await get(ref(db, "students"));
+        const studentsData = studentsSnap.val() ? Object.values(studentsSnap.val()) : [];
+
+        setAllGroups(groupsData);
+        setGroups(groupsData.filter((g) => g.main_teacher_id === currentUserId));
+        setStudents(studentsData);
+      } catch (err) {
+        console.error("Firebase read error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [currentUserId]);
 
   const chartData = [
     { name: "Your Groups", value: groups.length },
@@ -44,7 +58,7 @@ export default function GroupsPage() {
   const getStudentCount = (groupId) => {
     return students.filter((s) => s.group_id === groupId).length;
   };
- 
+
   const getInitials = (name) => {
     return name
       .split(" ")
@@ -52,21 +66,17 @@ export default function GroupsPage() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-  }; 
-  
+  };
+
   const filteredGroups = groups.filter((g) => {
-  const lowerSearch = search.toLowerCase();
- 
-  const matchGroupName = g.name.toLowerCase().includes(lowerSearch);
- 
-  const groupStudents = students.filter((s) => s.group_id === g.id);
-  const matchStudent = groupStudents.some((s) =>
-    s.name.toLowerCase().includes(lowerSearch)
-  );
-
-  return matchGroupName || matchStudent;
-});
-
+    const lowerSearch = search.toLowerCase();
+    const matchGroupName = g.name.toLowerCase().includes(lowerSearch);
+    const groupStudents = students.filter((s) => s.group_id === g.id);
+    const matchStudent = groupStudents.some((s) =>
+      s.name.toLowerCase().includes(lowerSearch)
+    );
+    return matchGroupName || matchStudent;
+  });
 
   return (
     <div
@@ -77,20 +87,17 @@ export default function GroupsPage() {
         Welcome, {currentUserName}
       </h1>
 
-      <p className="text-white/70 text-sm mb-6">
-        Select a group to view students
-      </p>
- 
+      <p className="text-white/70 text-sm mb-6">Select a group to view students</p>
+
       <input
         type="text"
         placeholder="Search group..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-xl p-3 rounded-lg bg-white/10 border border-white/20
-                   text-white placeholder-white/40 mb-6 backdrop-blur-xl"
+        className="w-full max-w-xl p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 mb-6 backdrop-blur-xl"
       />
 
-      {loading ? ( 
+      {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-xl mb-12">
           {[1, 2, 3].map((i) => (
             <div
@@ -113,16 +120,9 @@ export default function GroupsPage() {
               <div
                 key={g.id}
                 onClick={() => navigate(`/dashboard/${g.id}`)}
-                className="bg-white/10 backdrop-blur-xl border border-white/20 
-                           p-5 rounded-xl shadow cursor-pointer 
-                           hover:bg-white/20 transition-all"
-              > 
-                <div
-                  className="w-12 h-12 rounded-full bg-white/20 border border-white/30 
-                             flex items-center justify-center text-white text-lg 
-                             font-semibold mb-3 backdrop-blur-xl 
-                             animate-[fadeIn_0.4s_ease]"
-                >
+                className="bg-white/10 backdrop-blur-xl border border-white/20 p-5 rounded-xl shadow cursor-pointer hover:bg-white/20 transition-all"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-lg font-semibold mb-3 backdrop-blur-xl animate-[fadeIn_0.4s_ease]">
                   {getInitials(g.name)}
                 </div>
 
@@ -145,7 +145,7 @@ export default function GroupsPage() {
           })}
         </div>
       )}
- 
+
       <div className="w-full max-w-xl bg-white/10 border border-white/20 rounded-xl p-6 backdrop-blur-xl">
         <h3 className="text-center text-lg text-white mb-4 font-medium">
           Your Group Distribution

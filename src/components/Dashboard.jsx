@@ -1,7 +1,20 @@
+// Dashboard.jsx
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { PencilIcon, TrashIcon, XMarkIcon, CheckIcon, PlusIcon } from "@heroicons/react/24/solid";
+import {
+  PencilIcon,
+  TrashIcon,
+  XMarkIcon,
+  CheckIcon,
+  PlusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MoonIcon,
+  SunIcon,
+  ArrowDownTrayIcon,
+  PrinterIcon,
+} from "@heroicons/react/24/solid";
 
 import {
   BarChart,
@@ -17,468 +30,601 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  LineChart,
+  Line,
 } from "recharts";
 
+import StudentModal from "./StudentModal";
+
+import { db } from "../firebase";
+import { ref, get, set, update, remove, push } from "firebase/database";
+
 export default function Dashboard() {
+  const { groupId } = useParams();
+  const currentUserName = sessionStorage.getItem("currentUserName") || "Teacher";
+
+  // --- core data ---
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
+  // UI state
   const [editingStudent, setEditingStudent] = useState(null);
   const [addingStudent, setAddingStudent] = useState(false);
   const [newStudent, setNewStudent] = useState({});
   const [chartType, setChartType] = useState("bar");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
+  // filters & UI controls
+  const [searchQuery, setSearchQuery] = useState("");
+  const [minAverage, setMinAverage] = useState(0);
+
+  // localStorage-backed states with safe defaults
+  const [visibleSubjects, setVisibleSubjects] = useState(() => {
+    try {
+      const raw = localStorage.getItem("visibleSubjects");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const raw = localStorage.getItem("columnOrder");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("theme") || "dark";
+    } catch {
+      return "dark";
+    }
+  });
+
   const [addingSubject, setAddingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
 
-  const { groupId } = useParams();
-  const currentUserName = sessionStorage.getItem("currentUserName");
+  // local UI toggles
+  const [showSubjectControls, setShowSubjectControls] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // student id for confirm
 
+  // --- load students from Realtime Database ---
   useEffect(() => {
-    fetch("/students.json")
-      .then(res => res.json())
-      .then((data) => {
-        setStudents(data.filter(s => s.group_id === parseInt(groupId)));
-        setLoading(false);
-      });
+    setLoading(true);
+    setFetchError(null);
+    const studentsRef = ref(db, "students");
+    get(studentsRef)
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          const allStudents = snapshot.val();
+          const filtered = Object.entries(allStudents)
+            .filter(([id, s]) => s.group_id === parseInt(groupId))
+            .map(([id, s]) => ({
+              id,
+              ...s,
+              history: s.history ?? generateHistoryFromScores(s),
+            }));
+          setStudents(filtered);
+        } else {
+          setStudents([]);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setFetchError(err.message || "Unknown error");
+        setStudents([]);
+      })
+      .finally(() => setLoading(false));
   }, [groupId]);
 
-  const handleDelete = (studentId) => {
-    if (window.confirm("Are you sure you want to delete this student?")) {
-      setStudents(students.filter(s => s.id !== studentId));
+  // persist theme
+  useEffect(() => {
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {}
+  }, [theme]);
+
+  // --- Derived subjects list from students data ---
+  const allSubjects = useMemo(() => {
+    const setS = new Set();
+    students.forEach((s) => {
+      Object.keys(s).forEach((k) => {
+        if (!["id", "name", "main_teacher_id", "group_id", "photo", "history"].includes(k)) {
+          setS.add(k);
+        }
+      });
+    });
+    const arr = Array.from(setS);
+    if (columnOrder && Array.isArray(columnOrder)) {
+      const ordered = [
+        ...columnOrder.filter((c) => arr.includes(c)),
+        ...arr.filter((a) => !columnOrder.includes(a)),
+      ];
+      return ordered;
     }
-  };
+    return arr;
+  }, [students, columnOrder]);
 
-  const handleSave = (student) => {
-    if (editingStudent) {
-      setStudents(students.map(s => s.id === student.id ? { ...student } : s));
-      setEditingStudent(null);
+  // initialize visibleSubjects if null
+  useEffect(() => {
+    if (visibleSubjects === null && allSubjects.length) {
+      const obj = {};
+      allSubjects.forEach((s) => (obj[s] = true));
+      setVisibleSubjects(obj);
+      try {
+        localStorage.setItem("visibleSubjects", JSON.stringify(obj));
+      } catch {}
     }
-  };
+  }, [allSubjects]);
 
-  const saveNewStudent = (student) => {
-    const maxId = students.length ? Math.max(...students.map(s => s.id)) : 0;
-    const newStud = { ...student, id: maxId + 1, group_id: parseInt(groupId) };
-    setStudents([...students, newStud]);
-    setAddingStudent(false);
-    setNewStudent({});
-  };
+  // ensure columnOrder set when subjects available
+  useEffect(() => {
+    if (!columnOrder && allSubjects.length) {
+      setColumnOrder(allSubjects);
+      try {
+        localStorage.setItem("columnOrder", JSON.stringify(allSubjects));
+      } catch {}
+    }
+  }, [allSubjects]);
 
-  // subjects derived from students data
-  const subjects = Array.from(
-    new Set(
-      students.flatMap(s =>
-        Object.keys(s).filter(k => !['id','name','main_teacher_id','group_id'].includes(k))
-      )
-    )
-  );
+  // persist columnOrder when changes
+  useEffect(() => {
+    if (columnOrder) {
+      try {
+        localStorage.setItem("columnOrder", JSON.stringify(columnOrder));
+      } catch {}
+    }
+  }, [columnOrder]);
 
-  const topPerSubject = {};
-  subjects.forEach(subj => {
-    let maxScore = -Infinity;
-    let topStudent = null;
-    students.forEach(s => {
-      const score = (s[subj] ?? 0);
-      if (score > maxScore) {
-        maxScore = score;
-        topStudent = s.id;
+  // persist visibleSubjects when changes
+  useEffect(() => {
+    if (visibleSubjects) {
+      try {
+        localStorage.setItem("visibleSubjects", JSON.stringify(visibleSubjects));
+      } catch {}
+    }
+  }, [visibleSubjects]);
+
+  // --- helpers ---
+  function generateHistoryFromScores(s) {
+    const hist = {};
+    Object.keys(s).forEach((k) => {
+      if (!["id", "name", "main_teacher_id", "group_id", "photo", "history"].includes(k)) {
+        const cur = Number(s[k] ?? 0);
+        if (isNaN(cur)) {
+          hist[k] = [];
+          return;
+        }
+        const a = Math.max(0, Math.min(100, Math.round(cur - 6)));
+        const b = Math.max(0, Math.min(100, Math.round(cur - 2)));
+        hist[k] = [a, b, Math.round(cur)];
       }
     });
-    topPerSubject[subj] = topStudent;
-  });
+    return hist;
+  }
 
-  const chartData = subjects.map(subj => {
-    const values = students.map(s => s[subj] ?? 0);
-    const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-    return { subject: subj, average: Number(avg.toFixed(1)) };
-  });
+  const computeAverage = (student) => {
+    const vals = allSubjects.map((sub) => Number(student[sub] ?? 0)).filter((n) => !isNaN(n));
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  };
 
-  const radarData = chartData;
+  const topPerSubject = useMemo(() => {
+    const map = {};
+    allSubjects.forEach((subj) => {
+      let max = -Infinity;
+      let topId = null;
+      students.forEach((s) => {
+        const v = Number(s[subj] ?? -Infinity);
+        if (!isNaN(v) && v > max) {
+          max = v;
+          topId = s.id;
+        }
+      });
+      map[subj] = topId;
+    });
+    return map;
+  }, [allSubjects, students]);
 
+  // --- sorting ---
   const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
     setSortConfig({ key, direction });
   };
 
-  const sortedStudents = [...students];
-  if (sortConfig.key) {
-    sortedStudents.sort((a,b) => {
-      const getVal = (obj, key) => {
-        if (key === 'average') {
-          const vals = subjects.map(sub => obj[sub] ?? 0);
-          return vals.length ? vals.reduce((x,y)=>x+y,0)/vals.length : 0;
-        }
-        // default: by property (name or subject column)
-        const val = obj[key];
-        if (typeof val === 'string') return val.toLowerCase();
-        return val ?? 0;
-      };
+  const sortedStudents = useMemo(() => {
+    let arr = [...students];
 
-      let aVal = getVal(a, sortConfig.key);
-      let bVal = getVal(b, sortConfig.key);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      arr = arr.filter((s) => (s.name || "").toLowerCase().includes(q));
+    }
 
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }
+    if (minAverage > 0) {
+      arr = arr.filter((s) => computeAverage(s) >= minAverage);
+    }
 
-  // ============ FIXED MODAL ===============
-  const StudentModal = ({
-    student,
-    setStudent,
-    handleSave,
-    adding = false,
-    allSubjects = [],
-    onClose
-  }) => {
-
-    const [localStudent, setLocalStudent] = useState({ name: '', ...student });
-
-    useEffect(() => {
-      // when student prop changes (e.g. different student selected), update local state
-      setLocalStudent({ name: '', ...student });
-    }, [student]);
-
-    const subjectsList = Array.from(
-      new Set([...allSubjects, ...Object.keys(localStudent)
-        .filter(k => !['id','name','main_teacher_id','group_id'].includes(k))])
-    );
-
-    const onSaveClick = () => {
-      // ensure name exists
-      if (!localStudent.name || !localStudent.name.trim()) {
-        alert('Please provide a name');
-        return;
-      }
-
-      // ensure numeric subject fields are numbers (or undefined)
-      const cleaned = { ...localStudent };
-      subjectsList.forEach(subj => {
-        if (cleaned[subj] === '') cleaned[subj] = undefined;
-        if (typeof cleaned[subj] === 'string') cleaned[subj] = parseInt(cleaned[subj]) || 0;
+    if (sortConfig.key) {
+      arr.sort((a, b) => {
+        const get = (obj, key) => {
+          if (key === "average") return computeAverage(obj);
+          const v = obj[key];
+          if (typeof v === "string") return v.toLowerCase();
+          return (v ?? 0);
+        };
+        const aV = get(a, sortConfig.key);
+        const bV = get(b, sortConfig.key);
+        if (aV < bV) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aV > bV) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
       });
+    }
 
-      handleSave(cleaned);
+    return arr;
+  }, [students, searchQuery, minAverage, sortConfig]);
+
+  // --- CRUD actions with Realtime DB ---
+  const handleDelete = (studentId) => setConfirmDelete(studentId);
+
+  const confirmDeleteNow = (studentId) => {
+    const studentRef = ref(db, `students/${studentId}`);
+    remove(studentRef).then(() => {
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setConfirmDelete(null);
+    });
+  };
+
+  const handleSave = (student) => {
+    if (!student || !student.id) return;
+    const studentRef = ref(db, `students/${student.id}`);
+    update(studentRef, student).then(() => {
+      setStudents((prev) => prev.map((s) => (s.id === student.id ? { ...student } : s)));
+      setEditingStudent(null);
+    });
+  };
+
+  const saveNewStudent = (student) => {
+    const newStudentRef = push(ref(db, "students"));
+    const studentData = {
+      ...student,
+      id: newStudentRef.key,
+      group_id: parseInt(groupId) || null,
+      history: student.history ?? generateHistoryFromScores(student),
     };
+    set(newStudentRef, studentData).then(() => {
+      setStudents((prev) => [...prev, studentData]);
+      setAddingStudent(false);
+      setNewStudent({});
+    });
+  };
 
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white/20 backdrop-blur-xl rounded-2xl p-6 w-96 shadow-xl border border-white/30 flex flex-col gap-4"
-        >
-          <div className="flex justify-between items-center">
-            <h2 className="text-white text-xl font-bold">
-              {adding ? 'Add Student' : 'Edit Student'}
-            </h2>
-            <button onClick={onClose}>
-              <XMarkIcon className="w-6 h-6 text-white" />
-            </button>
-          </div>
+  // --- subject controls ---
+  const toggleSubjectVisible = (subj) => {
+    const next = { ...(visibleSubjects || {}), [subj]: !visibleSubjects?.[subj] };
+    setVisibleSubjects(next);
+  };
 
-          <input
-            type="text"
-            className="p-2 rounded-md bg-white/90 text-black focus:outline-none"
-            value={localStudent.name}
-            onChange={(e) => setLocalStudent({ ...localStudent, name: e.target.value })}
-            placeholder="Name"
-          />
+  const addSubjectToStudents = (name) => {
+    if (!name) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (allSubjects.includes(trimmed)) {
+      setAddingSubject(false);
+      setNewSubjectName("");
+      return;
+    }
+    const updated = students.map((s) => {
+      const studentRef = ref(db, `students/${s.id}`);
+      update(studentRef, { [trimmed]: 0 }); // добавляем новый предмет каждому студенту
+      return { ...s, [trimmed]: 0 };
+    });
+    setStudents(updated);
+    setAddingSubject(false);
+    setNewSubjectName("");
+    const vis = { ...(visibleSubjects || {}) };
+    vis[trimmed] = true;
+    setVisibleSubjects(vis);
+    const nextOrder = [...(columnOrder || []), trimmed];
+    setColumnOrder(nextOrder);
+  };
 
-          {subjectsList.map(subj => (
-            <div key={subj} className="flex flex-col">
-              <label className="text-white mb-1">{subj}</label>
-              <input
-                type="number"
-                className="p-2 rounded-md bg-white/90 text-black focus:outline-none"
-                value={localStudent[subj] ?? ''}
-                onChange={(e) =>
-                  setLocalStudent({
-                    ...localStudent,
-                    [subj]: e.target.value === '' ? '' : e.target.value
-                  })
-                }
-                placeholder={subj}
-              />
-            </div>
-          ))}
+  const moveSubject = (subj, dir) => {
+    if (!columnOrder) return;
+    const idx = columnOrder.indexOf(subj);
+    if (idx === -1) return;
+    const to = dir === "left" ? idx - 1 : idx + 1;
+    if (to < 0 || to >= columnOrder.length) return;
+    const copy = [...columnOrder];
+    copy.splice(idx, 1);
+    copy.splice(to, 0, subj);
+    setColumnOrder(copy);
+  };
 
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white"
-            >
-              Cancel
-            </button>
+  const exportCSV = () => {
+    if (!students.length) return;
+    const visible = (columnOrder || allSubjects).filter((s) => visibleSubjects?.[s] ?? true);
+    const cols = ["id", "name", ...visible];
+    const rows = students.map((s) => cols.map((c) => {
+      const v = s[c] ?? "";
+      const str = String(v).replace(/"/g, '""');
+      return `"${str}"`;
+    }));
+    const csv = [cols.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `students_group_${groupId || "all"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-            <button
-              onClick={onSaveClick}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white flex items-center gap-1"
-            >
-              <CheckIcon className="w-5 h-5" /> Save
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    )
-  }
-  // =========================================
+  const printReport = () => window.print();
+
+  const rootClass = theme === "dark" ? "text-white" : "text-gray-900";
+
+  const TopBadge = ({ title = "Top score" }) => (
+    <span className="text-yellow-300 font-bold animate-pulse" title={title}>★</span>
+  );
+ 
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-6 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/bg3.gif')" }}>
-      <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-        className="w-full max-w-6xl bg-white/20 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/30 relative"
-      >
-        <div className="absolute top-4 left-10 z-50 flex items-center gap-2">
-          <img src="/logo.png" alt="Logo" className="w-20 object-contain drop-shadow-lg"/>
-        </div>
-
-        <h1 className="text-3xl font-bold text-center text-white mb-6">
-          Welcome, {currentUserName}
-        </h1>
-
-        <div className="flex justify-end mb-4 gap-3">
-          <button
-            onClick={() => {
-              setAddingStudent(true);
-              setNewStudent({ name: '' });
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white"
-          >
-            <PlusIcon className="w-5 h-5"/> Add Student
-          </button>
-
-          <button
-            onClick={() => setAddingSubject(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white"
-          >
-            <PlusIcon className="w-5 h-5"/> Add Subject
-          </button>
-        </div>
-
-        {loading ? (
-          <p className="text-white text-center">Loading students...</p>
-        ) : students.length === 0 ? (
-          <p className="text-white text-center">You have no students assigned.</p>
-        ) : (
-          <>
-            <div className="overflow-x-auto mb-6">
-              <table className="min-w-full text-white border-collapse">
-  <thead>
-    <tr className="border-b border-white/30">
-
-      {/* NAME */}
-      <th
-        onClick={() => requestSort("name")}
-        className="px-4 py-2 text-left cursor-pointer select-none"
-      >
-        <div className="inline-flex items-center gap-1">
-          Name
-          <span className={`text-sm ${sortConfig.key === "name" && sortConfig.direction === "asc" ? "text-white font-bold" : "text-white/50"}`}>▲</span>
-          <span className={`text-sm ${sortConfig.key === "name" && sortConfig.direction === "desc" ? "text-white font-bold" : "text-white/50"}`}>▼</span>
-        </div>
-      </th>
-
-      {/* SUBJECTS */}
-      {subjects.map((subj) => (
-        <th
-          key={subj}
-          onClick={() => requestSort(subj)}
-          className="px-4 py-2 text-center cursor-pointer select-none"
-        >
-          <div className="inline-flex items-center gap-1 justify-center w-full">
-            {subj}
-            <span className={`text-sm ${sortConfig.key === subj && sortConfig.direction === "asc" ? "text-white font-bold" : "text-white/50"}`}>▲</span>
-            <span className={`text-sm ${sortConfig.key === subj && sortConfig.direction === "desc" ? "text-white font-bold" : "text-white/50"}`}>▼</span>
+    <div className={`${rootClass} min-h-screen p-6 bg-cover bg-center`} style={{ backgroundImage: "url('/bg3.gif')" }}>
+      <div className="w-full max-w-7xl mx-auto">
+        {/* header */}
+        <div className="flex justify-between items-center mb-6 gap-4">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo" className="w-20 object-contain drop-shadow-lg"/>
+            <div>
+              <h1 className="text-3xl font-bold">Academic Dashboard</h1>
+              <div className={`text-sm ${theme === "dark" ? "text-white/80" : "text-gray-600"}`}>Welcome, {currentUserName}</div>
+            </div>
           </div>
-        </th>
-      ))}
 
-      {/* AVERAGE */}
-      <th
-        onClick={() => requestSort("average")}
-        className="px-4 py-2 text-center cursor-pointer select-none"
-      >
-        <div className="inline-flex items-center gap-1 justify-center">
-          Average
-          <span className={`text-sm ${sortConfig.key === "average" && sortConfig.direction === "asc" ? "text-white font-bold" : "text-white/50"}`}>▲</span>
-          <span className={`text-sm ${sortConfig.key === "average" && sortConfig.direction === "desc" ? "text-white font-bold" : "text-white/50"}`}>▼</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md">
+              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search students..." className="bg-transparent outline-none text-current placeholder-current/60" />
+              <input type="range" min="0" max="100" value={minAverage} onChange={(e) => setMinAverage(Number(e.target.value))} className="w-32" />
+              <div className="text-sm w-8 text-center">{minAverage}</div>
+            </div>
+
+            <button onClick={() => setShowSubjectControls((s) => !s)} className="px-3 py-2 rounded-md bg-white/10">Subjects</button>
+            <button onClick={() => setTheme((prev) => prev === "dark" ? "light" : "dark")} title="Toggle theme" className="p-2 rounded-md bg-white/10">
+              {theme === "dark" ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+            </button>
+            <button onClick={exportCSV} className="px-3 py-2 rounded-md bg-green-600/80 flex items-center gap-2">
+              <ArrowDownTrayIcon className="w-5 h-5" /> CSV
+            </button>
+            <button onClick={printReport} className="px-3 py-2 rounded-md bg-white/10 flex items-center gap-2">
+              <PrinterIcon className="w-5 h-5" /> Print
+            </button>
+          </div>
         </div>
-      </th>
 
-      <th className="px-4 py-2 text-center">Actions</th>
-    </tr>
-  </thead>
+        {/* subject controls dropdown */}
+        {showSubjectControls && (
+          <div className="bg-white/10 p-4 rounded-md mb-4 border border-white/20">
+            <div className="flex items-center gap-4">
+              <div className="flex gap-2 items-center">
+                <input value={newSubjectName} onChange={(e) => setNewSubjectName(e.target.value)} placeholder="New subject name" className="p-2 rounded-md text-black" />
+                <button onClick={() => addSubjectToStudents(newSubjectName)} className="px-3 py-2 bg-blue-600 rounded-md">Add Subject</button>
+              </div>
 
-  <tbody>
-    {sortedStudents.map((s, idx) => {
-      const scores = subjects.map((subj) => s[subj] ?? 0);
-      const avg = scores.length
-        ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
-        : "0.0";
-
-      return (
-        <tr
-          key={s.id}
-          className={`border-b border-white/20 ${
-            idx % 2 === 0 ? "bg-white/10" : "bg-white/5"
-          }`}
-        >
-          <td className="px-4 py-2">{s.name}</td>
-
-          {subjects.map((subj) => {
-            const isTop = topPerSubject[subj] === s.id;
-            return (
-              <td
-                key={subj}
-                className={`px-4 py-2 text-center relative ${
-                  isTop ? "bg-green-600/30 rounded-md font-bold" : ""
-                }`}
-              >
-                {s[subj] ?? "-"}
-                {isTop && (
-                  <span className="absolute top-0 right-1 text-yellow-300 font-bold">
-                    ★
-                  </span>
-                )}
-              </td>
-            );
-          })}
-
-          <td className="px-4 py-2 text-center font-semibold">{avg}</td>
-
-          <td className="px-4 py-2 text-center flex justify-center gap-2">
-            <button
-              onClick={() => setEditingStudent(s)}
-              className="p-1 rounded-md transition group"
-            >
-              <PencilIcon className="w-5 h-5 text-white group-hover:text-gray-400" />
-            </button>
-            <button
-              onClick={() => handleDelete(s.id)}
-              className="p-1 rounded-md transition group"
-            >
-              <TrashIcon className="w-5 h-5 text-white group-hover:text-gray-400" />
-            </button>
-          </td>
-        </tr>
-      );
-    })}
-  </tbody>
-</table>
-
+              <div className="flex items-center gap-3 flex-wrap">
+                {(allSubjects || []).map((subj) => (
+                  <div key={subj} className="flex items-center gap-2 bg-white/5 p-2 rounded-md">
+                    <input type="checkbox" checked={visibleSubjects?.[subj] ?? true} onChange={() => toggleSubjectVisible(subj)} />
+                    <span className="font-medium">{subj}</span>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button onClick={() => moveSubject(subj, "left")} className="p-1 rounded hover:bg-white/10"><ChevronLeftIcon className="w-4 h-4" /></button>
+                      <button onClick={() => moveSubject(subj, "right")} className="p-1 rounded hover:bg-white/10"><ChevronRightIcon className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            <div className="flex justify-center gap-4 mb-4">
-              <button onClick={() => setChartType("bar")} className={`px-4 py-2 rounded-md font-semibold ${chartType === 'bar' ? 'bg-green-600 text-white' : 'bg-white/20 text-white'}`}>Bar Chart</button>
-              <button onClick={() => setChartType("radar")} className={`px-4 py-2 rounded-md font-semibold ${chartType === 'radar' ? 'bg-green-600 text-white' : 'bg-white/20 text-white'}`}>Polygon (Radar)</button>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-5">
-              {chartType === "bar" ? (
-                <div className="w-full h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="4 4" stroke="#ffffff40"/>
-                      <XAxis dataKey="subject" stroke="white"/>
-                      <YAxis stroke="white"/>
-                      <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 10 }}/>
-                      <Bar dataKey="average" isAnimationActive={true} maxBarSize={140}>
-                        {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill="#ffffffcc"/>))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="w-full h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={radarData}>
-                      <PolarGrid/>
-                      <PolarAngleAxis dataKey="subject" stroke="white"/>
-                      <PolarRadiusAxis stroke="white"/>
-                      <Radar name="Group Average" dataKey="average" stroke="#3e3e3ecc" fill="#ffffff55" fillOpacity={0.5}/>
-                      <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 10 }}/>
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </>
+          </div>
         )}
-      </motion.div>
 
-      {editingStudent && (
-        <StudentModal
-          student={editingStudent}
-          setStudent={setEditingStudent}
-          handleSave={handleSave}
-          allSubjects={subjects}
-          onClose={() => setEditingStudent(null)}
-        />
-      )}
+        {/* table */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl">
+          {loading ? (
+            <p className="text-center py-8">Loading students...</p>
+          ) : fetchError ? (
+            <p className="text-center py-8 text-red-300">Error: {fetchError}</p>
+          ) : students.length === 0 ? (
+            <p className="text-center py-8">No students assigned.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto border-collapse">
+                  <thead className="sticky top-0 bg-white/5 backdrop-blur-md z-10">
+                    <tr className="border-b border-white/30">
+                      <th className="px-4 py-3 text-left">
+                        <div className="inline-flex items-center gap-2 cursor-pointer select-none" onClick={() => requestSort("name")}>
+                          Name
+                          {sortConfig.key === "name" && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
+                        </div>
+                      </th>
+                      {allSubjects.map((subj) => visibleSubjects?.[subj] && (
+                        <th key={subj} className="px-4 py-3 text-center cursor-pointer select-none" onClick={() => requestSort(subj)}>
+                          {subj}
+                          {sortConfig.key === subj && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center cursor-pointer select-none" onClick={() => requestSort("average")}>
+                        Avg
+                        {sortConfig.key === "average" && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
+                      </th>
+                      <th className="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedStudents.map((s) => {
+                      const avg = computeAverage(s);
+                      return (
+                        <tr key={s.id} className="border-b border-white/20 hover:bg-white/5">
+                          <td className="px-4 py-3 flex items-center gap-2">
+  {s.photo ? (
+    <img src={s.photo} alt={s.name} className="w-8 h-8 rounded-full object-cover" />
+  ) : (
+    <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold">
+      {s.name ? s.name[0].toUpperCase() : "?"}
+    </div>
+  )}
+  <span>{s.name}</span>
+</td>
 
-      {addingStudent && (
-        <StudentModal
-          student={newStudent}
-          setStudent={setNewStudent}
-          handleSave={saveNewStudent}
-          adding={true}
-          allSubjects={subjects}
-          onClose={() => {
-            setAddingStudent(false);
-            setNewStudent({});
-          }}
-        />
-      )}
+                          {allSubjects.map((subj) => visibleSubjects?.[subj] && (
+                            <td key={subj} className={`px-4 py-3 text-center font-semibold`} style={{ backgroundColor: s[subj] >= 90 ? "rgba(255,255,0,0.2)" : "" }}>
+                              {s[subj] ?? "-"}
+                              {topPerSubject[subj] === s.id && <TopBadge />}
+                            </td>
+                          ))}
+                          <td className="px-4 py-3 text-center font-semibold">{avg.toFixed(1)}</td>
+                          <td className="px-4 py-3 text-center flex gap-2 justify-center">
+                            <button onClick={() => setEditingStudent(s)} className="p-1  rounded-md"><PencilIcon className="w-4 h-4 hover:text-gray-400" /></button>
+                            <button onClick={() => handleDelete(s.id)} className="p-1 rounded-md"><TrashIcon className=" w-4 h-4 hover:text-gray-400" /></button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {/* charts + controls */}
+<div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+  <div className="md:col-span-2 bg-white/5 p-4 rounded-md border border-white/10">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2">
+        <button onClick={() => setChartType("bar")} className={`px-3 py-1 rounded ${chartType === "bar" ? "bg-green-600" : "bg-white/5"}`}>Bar</button>
+        <button onClick={() => setChartType("radar")} className={`px-3 py-1 rounded ${chartType === "radar" ? "bg-green-600" : "bg-white/5"}`}>Radar</button>
+        <button onClick={() => setChartType("line")} className={`px-3 py-1 rounded ${chartType === "line" ? "bg-green-600" : "bg-white/5"}`}>Line</button>
+      </div>
 
-      {addingSubject && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/20 backdrop-blur-xl rounded-2xl p-6 w-80 shadow-xl border border-white/30 flex flex-col gap-4"
+      <div className="text-sm text-white/80">Subjects: {allSubjects.length}</div>
+    </div>
+
+    <div style={{ height: 300 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {chartType === "bar" ? (
+          <BarChart
+            data={allSubjects.map((subj) => {
+              const vals = students.map((s) => Number(s[subj] ?? 0));
+              const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+              return { subject: subj, average: Number(avg.toFixed(1)) };
+            })}
+            margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
           >
-            <h2 className="text-white text-xl font-bold">Add Subject</h2>
+            <CartesianGrid strokeDasharray="4 4" stroke="#ffffff20" />
+            <XAxis dataKey="subject" stroke={theme === "dark" ? "gray-300" : "gray-800"} />
+            <YAxis stroke={theme === "dark" ? "gray-300" : "gray-800"} />
+            <Tooltip contentStyle={{ backgroundColor: "rgba(187, 187, 187, 0.95)", borderRadius: 10 }}/>
+            <Bar dataKey="average" isAnimationActive maxBarSize={100}>
+              {allSubjects.map((subj, index) => {
+                const vals = students.map((s) => Number(s[subj] ?? 0));
+                const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+                return <Cell key={`cell-${index}`} fill={`hsl(${120 - avg * 1.2}, 80%, 50%)`} />;
+              })}
+            </Bar>
+          </BarChart>
+        ) : chartType === "radar" ? (
+          <RadarChart data={allSubjects.map((subj) => {
+            const vals = students.map((s) => Number(s[subj] ?? 0));
+            const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            return { subject: subj, average: Number(avg.toFixed(1)) };
+          })}>
+            <PolarGrid/>
+            <PolarAngleAxis dataKey="subject"  stroke={theme === "dark" ? "gray-300" : "black"} />
+            <PolarRadiusAxis stroke={theme === "dark" ? "gray-300" : "black"} />
+            <Radar name="Group Average" dataKey="average" stroke="#3e3e3ecc" fill="#ffffff55" fillOpacity={0.5}/>
+            <Tooltip contentStyle={{ backgroundColor: "rgba(163, 163, 163, 0.95)", borderRadius: 10 }}/>
+          </RadarChart>
+        ) : (
+          <LineChart data={allSubjects.map((subj) => {
+            const vals = students.map((s) => Number(s[subj] ?? 0));
+            const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            return { subject: subj, average: Number(avg.toFixed(1)) };
+          })} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20"/>
+            <XAxis dataKey="subject" stroke={theme === "dark" ? "gray-300" : "black"} />
+            <YAxis stroke={theme === "dark" ? "gray-300" : "black"} />
+            <Tooltip contentStyle={{ backgroundColor: "rgba(140, 140, 140, 0.95)", borderRadius: 10 }}/>
+            <Line type="monotone" dataKey="average" stroke="#525252ff" dot={{ r: 4 }} />
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  </div>
 
-            <input
-              type="text"
-              className="p-2 rounded-md bg-white/90 text-black"
-              placeholder="Subject name"
-              value={newSubjectName}
-              onChange={(e) => setNewSubjectName(e.target.value)}
-            />
+  <div className="bg-white/5 p-4 rounded-md border border-white/10">
+    <h3 className="font-semibold mb-2">Group Summary</h3>
+    <div className="text-sm text-white/80 mb-2">Students: {students.length}</div>
+    <div className="text-sm mb-3">
+      <div>Top per subject:</div>
+      <ul className="list-disc ml-5 mt-2">
+        {allSubjects.map((s) => {
+          const vals = students.map((st) => Number(st[s] ?? 0));
+          const max = vals.length ? Math.max(...vals) : 0;
+          const topStudent = students.find((st) => Number(st[s] ?? 0) === max);
+          return <li key={s} className="text-sm">{s}: {topStudent ? `${topStudent.name} (${topStudent[s] ?? "-"})` : "-"}</li>;
+        })}
+      </ul>
+    </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => { setAddingSubject(false); setNewSubjectName(""); }}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md"
-              >
-                Cancel
-              </button>
+    <div className="flex flex-col gap-2">
+      <button className="px-3 py-2 bg-blue-600 rounded-md" onClick={() => { setAddingStudent(true); setNewStudent({ name: "" }); }}>Add Student</button>
+      <button className="px-3 py-2 bg-gray-600 rounded-md" onClick={() => setAddingSubject(true)}>Add Subject</button>
+    </div>
+  </div>
+</div>
 
-              <button
-                onClick={() => {
-                  const name = newSubjectName.trim();
-                  if (!name) return;
+            </>
+          )}
+        </motion.div>
+        
 
-                  // add subject to all students with default 0 if not exists
-                  const updated = students.map(s => ({ ...s, [name]: s[name] ?? 0 }));
-                  setStudents(updated);
-                  setAddingSubject(false);
-                  setNewSubjectName("");
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-              >
-                Add
-              </button>
+        {(editingStudent || addingStudent) && (
+  <StudentModal
+    student={editingStudent ?? newStudent}
+    adding={addingStudent}
+    allSubjects={allSubjects}
+    onClose={() => {
+      setEditingStudent(null);
+      setAddingStudent(false);
+    }}
+    onSave={(updatedStudent) => {
+      if (editingStudent) {
+        handleSave(updatedStudent); // обновляем существующего студента
+      } else {
+        saveNewStudent(updatedStudent); // сохраняем нового студента
+      }
+      // Закрываем модалку после сохранения
+      setEditingStudent(null);
+      setAddingStudent(false);
+    }}
+  />
+)}
+
+        {/* confirm delete */}
+        {confirmDelete && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-white/30 text-white flex flex-col gap-4">
+              <p>Are you sure you want to delete this student?</p>
+              <div className="flex gap-4 justify-end">
+                <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 bg-white/20 rounded-md">Cancel</button>
+                <button onClick={() => confirmDeleteNow(confirmDelete)} className="px-4 py-2 bg-red-600 rounded-md">Delete</button>
+              </div>
             </div>
-          </motion.div>
-        </div>
-      )}
+          </div>
+        )}
 
-      <p className="text-white/80 text-sm mt-6">© 2026 Academic Dashboard</p>
+      </div>
     </div>
   );
 }

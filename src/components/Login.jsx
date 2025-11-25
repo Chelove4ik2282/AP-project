@@ -1,6 +1,9 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { ref, get } from "firebase/database";
+import { auth, db } from "../firebase"; // путь к firebase.js
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,52 +13,43 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const res = await fetch("/users.json");
-      const users = await res.json();
+  try {
+    const usersSnap = await get(ref(db, "users")); // путь к пользователям
+    const usersObj = usersSnap.val();
+    const users = Object.values(usersObj);
+    const user = users.find(u => u.login === login && u.password === password);
 
-      const user = users.find(u => u.login === login && u.password === password);
-
-      if (!user) {
-        setError("Invalid login or password");
-        setLoading(false);
-        return;
-      }
-
-      sessionStorage.setItem("currentUserId", user.id);
-      sessionStorage.setItem("currentUserName", user.name);
-
-      navigate("/groups");
-    } catch (err) {
-      setError("Cannot load users.json");
+    if (!user) {
+      setError("Invalid login or password");
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    sessionStorage.setItem("currentUserId", user.id);
+    sessionStorage.setItem("currentUserName", user.name);
+
+    navigate("/groups");
+  } catch (err) {
+    setError("Cannot load users");
+    console.error(err);
   }
 
+  setLoading(false);
+}
+
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4"
-      style={{ backgroundImage: "url('/bg3.gif')" }}
-    >
+    <div className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4" style={{ backgroundImage: "url('/bg3.gif')" }}>
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="w-full max-w-md bg-white/20 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/30"
-      > 
-        <img
-          src="/logo.png"
-          alt="Logo"
-          className="w-30  mx-auto mb-4 drop-shadow-xl"
-        />
-
-        {/* <h1 className="text-3xl font-bold text-center text-white mb-6">
-          Student Academic Performance Dashboard
-        </h1> */}
+      >
+        <img src="/logo.png" alt="Logo" className="w-30 mx-auto mb-4 drop-shadow-xl" />
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div>
@@ -67,7 +61,6 @@ export default function LoginPage() {
               value={login}
               onChange={(e) => setLogin(e.target.value)}
             />
-            {error && <p className="text-red-300 text-sm mt-1">{error}</p>}
           </div>
 
           <div>
@@ -99,9 +92,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-white/80 text-sm mt-6">
-          © 2026 Academic Dashboard
-        </p>
+        <p className="text-center text-white/80 text-sm mt-6">© 2026 Academic Dashboard</p>
       </motion.div>
     </div>
   );
