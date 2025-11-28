@@ -1,4 +1,3 @@
-// Dashboard.jsx
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
@@ -148,9 +147,8 @@ export default function Dashboard() {
       return ordered;
     }
     return arr;
-  }, [students, columnOrder]);
+  }, [students, columnOrder]); 
 
-  // initialize visibleSubjects if null
   useEffect(() => {
     if (visibleSubjects === null && allSubjects.length) {
       const obj = {};
@@ -161,8 +159,8 @@ export default function Dashboard() {
       } catch {}
     }
   }, [allSubjects]);
+ 
 
-  // ensure columnOrder set when subjects available
   useEffect(() => {
     if (!columnOrder && allSubjects.length) {
       setColumnOrder(allSubjects);
@@ -171,8 +169,8 @@ export default function Dashboard() {
       } catch {}
     }
   }, [allSubjects]);
+ 
 
-  // persist columnOrder when changes
   useEffect(() => {
     if (columnOrder) {
       try {
@@ -181,7 +179,7 @@ export default function Dashboard() {
     }
   }, [columnOrder]);
 
-  // persist visibleSubjects when changes
+  
   useEffect(() => {
     if (visibleSubjects) {
       try {
@@ -190,7 +188,7 @@ export default function Dashboard() {
     }
   }, [visibleSubjects]);
 
-  // --- helpers ---
+  
   function generateHistoryFromScores(s) {
     const hist = {};
     Object.keys(s).forEach((k) => {
@@ -230,7 +228,7 @@ export default function Dashboard() {
     return map;
   }, [allSubjects, students]);
 
-  // --- sorting ---
+  
   const requestSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
@@ -268,7 +266,7 @@ export default function Dashboard() {
     return arr;
   }, [students, searchQuery, minAverage, sortConfig]);
 
-  // --- CRUD actions with Realtime DB ---
+  
   const handleDelete = (studentId) => setConfirmDelete(studentId);
 
   const confirmDeleteNow = (studentId) => {
@@ -302,36 +300,91 @@ export default function Dashboard() {
       setNewStudent({});
     });
   };
-
-  // --- subject controls ---
+ 
   const toggleSubjectVisible = (subj) => {
     const next = { ...(visibleSubjects || {}), [subj]: !visibleSubjects?.[subj] };
     setVisibleSubjects(next);
   };
 
-  const addSubjectToStudents = (name) => {
-    if (!name) return;
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (allSubjects.includes(trimmed)) {
-      setAddingSubject(false);
-      setNewSubjectName("");
-      return;
-    }
-    const updated = students.map((s) => {
-      const studentRef = ref(db, `students/${s.id}`);
-      update(studentRef, { [trimmed]: 0 }); // добавляем новый предмет каждому студенту
-      return { ...s, [trimmed]: 0 };
+  const [showModal, setShowModal] = useState(false);
+const [selectedSubject, setSelectedSubject] = useState(null);
+
+ 
+const addSubjectToStudents = async (name) => {
+  if (!name) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+ 
+  if (allSubjects.includes(trimmed)) {
+    setSelectedSubject(trimmed);
+    setShowModal(true);
+    setNewSubjectName("");
+    return;
+  }
+
+  try { 
+    const updates = {};
+    students.forEach(s => {
+      updates[`students/${s.id}/${trimmed}`] = 0;
     });
+
+    await update(ref(db), updates);
+ 
+    const updated = students.map(s => ({ ...s, [trimmed]: 0 }));
     setStudents(updated);
+ 
+    setVisibleSubjects(prev => ({
+      ...(prev || {}),
+      [trimmed]: true
+    }));
+ 
+    setColumnOrder(prev => ([...(prev || []), trimmed]));
+ 
+    setSelectedSubject(trimmed);
+    setShowModal(true);
+
+  } finally {
     setAddingSubject(false);
     setNewSubjectName("");
-    const vis = { ...(visibleSubjects || {}) };
-    vis[trimmed] = true;
-    setVisibleSubjects(vis);
-    const nextOrder = [...(columnOrder || []), trimmed];
-    setColumnOrder(nextOrder);
-  };
+  }
+};
+
+const deleteSubjectFromStudents = async (subj) => {
+  if (!subj) return;
+  if (!confirm(`Удалить предмет "${subj}" у всех студентов?`)) return;
+
+  try {
+    // Формируем объект апдейтов — удаляем subj у каждого студента
+    const updates = {};
+    students.forEach(s => {
+      updates[`students/${s.id}/${subj}`] = null;
+    });
+    await update(ref(db), updates);
+
+    // Обновляем локально
+    const updated = students.map(s => {
+      const copy = { ...s };
+      delete copy[subj];
+      return copy;
+    });
+
+    setStudents(updated);
+
+    // убираем из visibleSubjects
+    setVisibleSubjects(prev => {
+      const copy = { ...(prev || {}) };
+      delete copy[subj];
+      return copy;
+    });
+
+    // убираем из columnOrder
+    setColumnOrder(prev => (prev || []).filter(s => s !== subj));
+
+  } catch (e) {
+    console.error("Error deleting subject:", e);
+  }
+};
+
 
   const moveSubject = (subj, dir) => {
     if (!columnOrder) return;
@@ -417,15 +470,25 @@ export default function Dashboard() {
 
               <div className="flex items-center gap-3 flex-wrap">
                 {(allSubjects || []).map((subj) => (
-                  <div key={subj} className="flex items-center gap-2 bg-white/5 p-2 rounded-md">
-                    <input type="checkbox" checked={visibleSubjects?.[subj] ?? true} onChange={() => toggleSubjectVisible(subj)} />
-                    <span className="font-medium">{subj}</span>
-                    <div className="flex items-center gap-1 ml-2">
-                      <button onClick={() => moveSubject(subj, "left")} className="p-1 rounded hover:bg-white/10"><ChevronLeftIcon className="w-4 h-4" /></button>
-                      <button onClick={() => moveSubject(subj, "right")} className="p-1 rounded hover:bg-white/10"><ChevronRightIcon className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                ))}
+  <div key={subj} className="flex items-center gap-2 bg-white/5 p-2 rounded-md">
+    <input type="checkbox" checked={visibleSubjects?.[subj] ?? true} onChange={() => toggleSubjectVisible(subj)} />
+    <span className="font-medium">{subj}</span>
+
+    <div className="flex items-center gap-1 ml-2">
+      <button onClick={() => moveSubject(subj, "left")} className="p-1 hover:bg-white/10">
+        <ChevronLeftIcon className="w-4 h-4" />
+      </button>
+      <button onClick={() => moveSubject(subj, "right")} className="p-1 hover:bg-white/10">
+        <ChevronRightIcon className="w-4 h-4" />
+      </button>
+ 
+      <button onClick={() => deleteSubjectFromStudents(subj)} className="p-1 hover:bg-red-600/50 text-red-400">
+        <TrashIcon className="w-4 h-4"/>
+      </button>
+    </div>
+  </div>
+))}
+
               </div>
             </div>
           </div>
@@ -481,12 +544,38 @@ export default function Dashboard() {
 </td>
 
                           {allSubjects.map((subj) => visibleSubjects?.[subj] && (
-                            <td key={subj} className={`px-4 py-3 text-center font-semibold`} style={{ backgroundColor: s[subj] >= 90 ? "rgba(255,255,0,0.2)" : "" }}>
-                              {s[subj] ?? "-"}
-                              {topPerSubject[subj] === s.id && <TopBadge />}
-                            </td>
-                          ))}
-                          <td className="px-4 py-3 text-center font-semibold">{avg.toFixed(1)}</td>
+  <td key={subj} 
+      className="px-4 py-3 text-center font-semibold relative select-none"
+  >
+    {s[subj] ?? "-"}
+    
+    {/*  Letter Grade */}
+    {s[subj] !== undefined && (
+      <span className="ml-1 text-xs opacity-70">
+        {s[subj] >= 91 ? "A" :
+         s[subj] >= 81 ? "B" :
+         s[subj] >= 71 ? "C" :
+         s[subj] >= 61 ? "D" :
+         s[subj] >= 51 ? "E" : "F"}
+      </span>
+    )}
+
+    {topPerSubject[subj] === s.id && <TopBadge />}
+  </td>
+))}
+
+                          <td className="px-4 py-3 text-center font-semibold">
+                          {avg.toFixed(1)}
+                          {avg.toFixed(1) !== undefined && (
+      <span className="ml-1 text-xs opacity-70">
+        {avg.toFixed(1) >= 91 ? "A" :
+         avg.toFixed(1) >= 81 ? "B" :
+         avg.toFixed(1) >= 71 ? "C" :
+         avg.toFixed(1) >= 61 ? "D" :
+         avg.toFixed(1) >= 51 ? "E" : "F"}
+      </span>
+    )}
+    </td>
                           <td className="px-4 py-3 text-center flex gap-2 justify-center">
                             <button onClick={() => setEditingStudent(s)} className="p-1  rounded-md"><PencilIcon className="w-4 h-4 hover:text-gray-400" /></button>
                             <button onClick={() => handleDelete(s.id)} className="p-1 rounded-md"><TrashIcon className=" w-4 h-4 hover:text-gray-400" /></button>
@@ -514,25 +603,34 @@ export default function Dashboard() {
       <ResponsiveContainer width="100%" height="100%">
         {chartType === "bar" ? (
           <BarChart
-            data={allSubjects.map((subj) => {
-              const vals = students.map((s) => Number(s[subj] ?? 0));
-              const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-              return { subject: subj, average: Number(avg.toFixed(1)) };
-            })}
-            margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="4 4" stroke="#ffffff20" />
-            <XAxis dataKey="subject" stroke={theme === "dark" ? "gray-300" : "gray-800"} />
-            <YAxis stroke={theme === "dark" ? "gray-300" : "gray-800"} />
-            <Tooltip contentStyle={{ backgroundColor: "rgba(187, 187, 187, 0.95)", borderRadius: 10 }}/>
-            <Bar dataKey="average" isAnimationActive maxBarSize={100}>
-              {allSubjects.map((subj, index) => {
-                const vals = students.map((s) => Number(s[subj] ?? 0));
-                const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-                return <Cell key={`cell-${index}`} fill={`hsl(${120 - avg * 1.2}, 80%, 50%)`} />;
-              })}
-            </Bar>
-          </BarChart>
+  data={allSubjects.map((subj) => {
+    const vals = students.map((s) => Number(s[subj] ?? 0));
+    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    return { subject: subj, average: Number(avg.toFixed(1)) };
+  })}
+  margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+>
+  <defs>
+    <linearGradient id="avgGradient" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
+      <stop offset="100%" stopColor="rgba(255,255,255,1)" />
+    </linearGradient>
+  </defs>
+
+  <CartesianGrid strokeDasharray="4 4" stroke="#ffffff20" />
+  <XAxis dataKey="subject" stroke={theme === "dark" ? "gray-300" : "gray-800"} />
+  <YAxis stroke={theme === "dark" ? "gray-300" : "gray-800"} />
+  <Tooltip contentStyle={{ backgroundColor: "rgba(187, 187, 187, 0.95)", borderRadius: 10 }}/>
+
+  <Bar
+    dataKey="average"
+    isAnimationActive
+    maxBarSize={100}
+    radius={[12, 12, 0, 0]}
+    fill="url(#avgGradient)"
+  />
+</BarChart>
+
         ) : chartType === "radar" ? (
           <RadarChart data={allSubjects.map((subj) => {
             const vals = students.map((s) => Number(s[subj] ?? 0));
@@ -600,16 +698,46 @@ export default function Dashboard() {
     }}
     onSave={(updatedStudent) => {
       if (editingStudent) {
-        handleSave(updatedStudent); // обновляем существующего студента
+        handleSave(updatedStudent);  
       } else {
-        saveNewStudent(updatedStudent); // сохраняем нового студента
-      }
-      // Закрываем модалку после сохранения
+        saveNewStudent(updatedStudent);  
+      } 
       setEditingStudent(null);
       setAddingStudent(false);
     }}
   />
 )}
+        {addingSubject && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-xl text-white w-[300px]">
+      <h2 className="text-xl font-semibold text-center mb-4">Add new subject</h2>
+
+      <input
+        type="text"
+        placeholder="Subject name..."
+        value={newSubjectName}
+        onChange={(e) => setNewSubjectName(e.target.value)}
+        className="w-full px-3 py-2 bg-white/20 rounded-md outline-none focus:bg-white/30"
+      />
+
+      <div className="flex gap-2 mt-4">
+        <button 
+          className="flex-1 py-2 rounded-md bg-green-500/70 hover:bg-green-500"
+          onClick={() => addSubjectToStudents(newSubjectName)}
+        >
+          Add
+        </button>
+        <button 
+          className="flex-1 py-2 rounded-md bg-red-500/70 hover:bg-red-500"
+          onClick={() => setAddingSubject(false)}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
         {/* confirm delete */}
         {confirmDelete && (

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ref, get } from "firebase/database";
-import { auth, db } from "../firebase"; // путь к firebase.js
+import { auth, db } from "../firebase";  
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export default function LoginPage() {
   setLoading(true);
 
   try {
-    const usersSnap = await get(ref(db, "users")); // путь к пользователям
+    const usersSnap = await get(ref(db, "users"));  
     const usersObj = usersSnap.val();
     const users = Object.values(usersObj);
     const user = users.find(u => u.login === login && u.password === password);
