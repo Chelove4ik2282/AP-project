@@ -497,12 +497,10 @@ const deleteSubjectFromStudents = async (subj) => {
         {/* table */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl">
           {loading ? (
-            <p className="text-center py-8">Loading students...</p>
-          ) : fetchError ? (
-            <p className="text-center py-8 text-red-300">Error: {fetchError}</p>
-          ) : students.length === 0 ? (
-            <p className="text-center py-8">No students assigned.</p>
-          ) : (
+  <p className="text-center py-8">Loading students...</p>
+) : fetchError ? (
+  <p className="text-center py-8 text-red-300">Error: {fetchError}</p>
+) : (
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse">
