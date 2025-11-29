@@ -140,15 +140,19 @@ export default function StudentModal({
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.94, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-white/20 p-6 text-white shadow-2xl max-h-[90vh] overflow-auto"
-      >
+  initial={{ scale: 0.94, opacity: 0 }}
+  animate={{ scale: 1, opacity: 1 }}
+  onClick={(e) => e.stopPropagation()}
+  className="w-full max-w-4xl rounded-2xl 
+             bg-white/10 backdrop-blur-xl
+             border border-white/15 shadow-2xl p-6 text-white
+             max-h-[90vh] overflow-auto"
+>
+
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-slate-900/95 backdrop-blur-sm pb-4 -mt-2 pt-2 z-10">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-            {adding ? "➕ Add New Student" : "✏️ Edit Student"}
+        <div className="flex justify-between items-center mb-6 top-0 rounded-[10px] backdrop-blur-sm pb-4 -mt-2 pt-4 z-10">
+          <h2 className="pl-[20px] text-2xl font-bold text-white bg-clip-text text-transparent">
+            {adding ? "Add New Student" : "Edit Student"}
           </h2>
           <button
             onClick={onClose}
@@ -161,136 +165,118 @@ export default function StudentModal({
 
         {/* BODY */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT FORM */}
-          <div className="flex flex-col gap-4">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium mb-2 text-white/80">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                placeholder="Enter student name"
-                value={local.name}
-                onChange={(e) => {
-                  setLocal({ ...local, name: e.target.value });
-                  setErrors({ ...errors, name: null });
-                }}
-                className={`w-full p-3 rounded-xl bg-white/95 text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-500 outline-none transition ${
-                  errors.name ? "ring-2 ring-red-500" : ""
-                }`}
-              />
-              {errors.name && (
-                <p className="text-red-400 text-xs mt-1">{errors.name}</p>
-              )}
-            </div>
+          {/* LEFT FORM — обновлённая версия */}
+<div className="flex flex-col gap-5">
+  
+  {/* Name */}
+  <div className="bg-white/10 p-4 rounded-xl border border-white/10">
+    <label className="block text-sm font-medium mb-1 text-white/90">Full Name *</label>
+    <input
+      type="text"
+      placeholder="Enter student name"
+      value={local.name}
+      onChange={(e) => {
+        setLocal({ ...local, name: e.target.value });
+        setErrors({ ...errors, name: null });
+      }}
+      className={`w-full p-3 rounded-lg bg-white/90 text-black placeholder:text-gray-500 outline-none 
+      focus:ring-2 focus:ring-green-500 transition ${errors.name ? "ring-2 ring-red-500" : ""}`}
+    />
+    {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+  </div>
 
-            {/* Photo */}
-            <div>
-              <label className="block text-sm font-medium mb-2 text-white/80">
-                Photo URL
-              </label>
-              <input
-                type="url"
-                placeholder="https://example.com/photo.jpg"
-                value={local.photo || ""}
-                onChange={(e) => setLocal({ ...local, photo: e.target.value })}
-                className="w-full p-3 rounded-xl bg-white/95 text-black placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 outline-none transition"
-              />
-            </div>
+  {/* Photo */}
+  <div className="bg-white/10 p-4 rounded-xl border border-white/10">
+    <label className="block text-sm font-medium mb-1 text-white/90">Photo URL</label>
+    <input
+      type="url"
+      placeholder="https://example.com/photo.jpg"
+      value={local.photo || ""}
+      onChange={(e) => setLocal({ ...local, photo: e.target.value })}
+      className="w-full p-3 rounded-lg bg-white/90 text-black placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
+    />
 
-            {local.photo && (
-              <div className="mt-2">
-                <img
-                  src={local.photo}
-                  alt="Preview"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-white/30 mx-auto"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                  }}
+    {local.photo && (
+      <img
+        src={local.photo}
+        alt="Preview"
+        className="w-24 h-24 rounded-full object-cover shadow-lg border border-white/20 mx-auto mt-3"
+        onError={(e) => (e.target.style.display = "none")}
+      />
+    )}
+  </div>
+
+  {/* SUBJECTS */}
+  <div className="bg-white/10 p-4 rounded-xl border border-white/10">
+    <label className="block text-sm font-medium mb-2 text-white/90">Subject Grades (0-100)</label>
+
+    <div className="flex flex-col gap-3 max-h-72 overflow-auto pr-1">
+      {subjectsList.length === 0 ? (
+        <p className="text-white/60 text-sm text-center py-3">No subjects available</p>
+      ) : (
+        subjectsList.map((sub) => {
+          const hist = local.history?.[sub] || [];
+          const weeks = Math.max(hist.length, local[sub] !== undefined ? 1 : 0);
+
+          return (
+            <div key={sub} className="flex flex-col gap-1 bg-white/5 p-2 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-28 text-sm text-white/90 truncate" title={sub}>{sub}</span>
+
+                {/* main input*/}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0-100"
+                  value={local[sub] ?? ""}
+                  onChange={(e) => /^\d{0,3}(\.\d?)?$/.test(e.target.value) && handleGradeChange(sub, e.target.value)}
+                  className={`flex-1 p-2 rounded-md bg-white/95 text-black text-[13px] placeholder:text-gray-400 outline-none 
+                  focus:ring-2 focus:ring-green-500 ${errors[sub] ? "ring-2 ring-red-500" : ""}`}
                 />
-              </div>
-            )}
-
-            {/* SUBJECTS */}
-            <div>
-              <label className="block text-sm font-medium mb-2 text-white/80">
-                Subject Grades (0-100)
-              </label>
-              <div className="flex flex-col gap-3 max-h-80 overflow-auto pr-2 bg-white/5 p-3 rounded-xl">
-                {subjectsList.length === 0 ? (
-                  <p className="text-white/50 text-sm text-center py-4">
-                    No subjects available
-                  </p>
-                ) : (
-                  subjectsList.map((sub) => {
-                    const hist = local.history?.[sub] || [];
-                    const weeks = Math.max(hist.length, local[sub] !== undefined ? 1 : 0);
-
-                    return (
-                      <div key={sub} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="w-28 text-sm text-white/90 truncate" title={sub}>
-                            {sub}
-                          </span>
-
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            placeholder="0-100"
-                            value={local[sub] ?? ""}
-                            onChange={(e) => handleGradeChange(sub, e.target.value)}
-                            className={`flex-1 p-2 rounded-lg bg-white/95 text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-500 outline-none transition ${
-                              errors[sub] ? "ring-2 ring-red-500" : ""
-                            }`}
-                          />
-
-                          {local[sub] !== undefined && local[sub] !== "" && (
-                            <button
-                              onClick={() => removeSubject(sub)}
-                              className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition"
-                              title="Clear grade"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-
-                        {weeks > 0 && (
-                          <div className="flex gap-2 overflow-x-auto py-1">
-                            {Array.from({ length: 3 }).map((_, i) => (
-                              <input
-                                key={i}
-                                type="number"
-                                min="0"
-                                max="100"
-                                placeholder={`Test ${i + 1}`}
-                                value={hist[i] ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setLocal((prev) => {
-                                    const updated = { ...prev };
-                                    if (!updated.history) updated.history = {};
-                                    if (!updated.history[sub]) updated.history[sub] = [];
-                                    updated.history[sub][i] = val !== "" ? Number(val) : null;
-                                    if (updated.history[sub].length > 3)
-                                      updated.history[sub].shift();
-                                    return updated;
-                                  });
-                                }}
-                                className="w-20 p-1 rounded-lg bg-white/80 text-black text-sm focus:ring-1 focus:ring-blue-400 outline-none"
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                
+                {/* delete btn */}
+                {local[sub] && (
+                  <button onClick={() => removeSubject(sub)} className="p-1 rounded-md hover:bg-red-500/30 text-red-400 transition">
+                    <TrashIcon className="w-4 h-4"/>
+                  </button>
                 )}
               </div>
+
+              {/* history block */}
+              {weeks > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <input
+                      key={i}
+                      type="number"
+                      min="0" max="100"
+                      placeholder={`T${i+1}`}
+                      value={hist[i] ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLocal(prev => {
+                          let u = {...prev};
+                          if(!u.history) u.history = {};
+                          if(!u.history[sub]) u.history[sub] = [];
+                          u.history[sub][i] = val ? Number(val) : null;
+                          if(u.history[sub].length>3) u.history[sub].shift();
+                          return u;
+                        });
+                      }}
+                      className="w-16 p-1.5 rounded-md bg-white/80 text-black text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          );
+        })
+      )}
+    </div>
+  </div>
+  
+</div>
+
 
           {/* RIGHT SIDE */}
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -373,7 +359,7 @@ export default function StudentModal({
             </div>
 
             {/* BUTTONS */}
-            <div className="flex justify-end gap-3 sticky bottom-0 bg-slate-900/95 backdrop-blur-sm pt-4 -mb-2 pb-2">
+            <div className="flex justify-end gap-3   bottom-0  backdrop-blur-sm pt-4 pr-5 -mb-2 pb-4">
               <button
                 onClick={onClose}
                 className="px-6 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 transition-all font-medium"

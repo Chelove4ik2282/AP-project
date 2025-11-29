@@ -430,34 +430,74 @@ const deleteSubjectFromStudents = async (subj) => {
     <div className={`${rootClass} min-h-screen p-6 bg-cover bg-center`} style={{ backgroundImage: "url('/bg3.gif')" }}>
       <div className="w-full max-w-7xl mx-auto">
         {/* header */}
-        <div className="flex justify-between items-center mb-6 gap-4">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Logo" className="w-20 object-contain drop-shadow-lg"/>
-            <div>
-              <h1 className="text-3xl font-bold">Academic Dashboard</h1>
-              <div className={`text-sm ${theme === "dark" ? "text-white/80" : "text-gray-600"}`}>Welcome, {currentUserName}</div>
-            </div>
-          </div>
+        <motion.div 
+  initial={{ opacity: 0, y: 20 }} 
+  animate={{ opacity: 1, y: 0 }} 
+  className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 mb-[30px] shadow-xl"
+>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md">
-              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search students..." className="bg-transparent outline-none text-current placeholder-current/60" />
-              <input type="range" min="0" max="100" value={minAverage} onChange={(e) => setMinAverage(Number(e.target.value))} className="w-32" />
-              <div className="text-sm w-8 text-center">{minAverage}</div>
-            </div>
+  <div className="flex justify-between items-center mb-6 gap-8">
 
-            <button onClick={() => setShowSubjectControls((s) => !s)} className="px-3 py-2 rounded-md bg-white/10">Subjects</button>
-            <button onClick={() => setTheme((prev) => prev === "dark" ? "light" : "dark")} title="Toggle theme" className="p-2 rounded-md bg-white/10">
-              {theme === "dark" ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
-            </button>
-            <button onClick={exportCSV} className="px-3 py-2 rounded-md bg-green-600/80 flex items-center gap-2">
-              <ArrowDownTrayIcon className="w-5 h-5" /> CSV
-            </button>
-            <button onClick={printReport} className="px-3 py-2 rounded-md bg-white/10 flex items-center gap-2">
-              <PrinterIcon className="w-5 h-5" /> Print
-            </button>
-          </div>
+    {/* LEFT — Logo + Titles */}
+    <div className="flex items-center gap-4">
+      <img src="/logo.png" alt="Logo" className="w-20 object-contain drop-shadow-lg"/>
+
+      <div>
+        <h1 className="text-3xl font-bold leading-none">Academic Dashboard</h1>
+        <div className={`mt-1 text-sm ${theme === "dark" ? "text-white/80" : "text-gray-600"}`}>
+          Welcome, {currentUserName}
         </div>
+      </div>
+    </div>
+
+    {/* RIGHT — Controls, neatly aligned */}
+    <div className="flex items-center gap-3">
+
+      {/* Search + Filter box same height as buttons */}
+      <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-md h-[42px]">
+        <input 
+          value={searchQuery} 
+          onChange={(e) => setSearchQuery(e.target.value)} 
+          placeholder="Search students..."  
+          className="bg-transparent outline-none text-current placeholder-current/60"
+        />
+
+        <input 
+          type="range" min="0" max="100" 
+          value={minAverage} 
+          onChange={(e) => setMinAverage(Number(e.target.value))}
+          className="w-32 accent-green-500"
+        />
+
+        <div className="text-sm w-8 text-center">{minAverage}</div>
+      </div>
+
+      {/* Buttons — all same height for perfect alignment */}
+      <button onClick={() => setShowSubjectControls(s=>!s)} 
+              className="px-3 py-2 rounded-md bg-white/10 h-[42px] flex items-center">
+        Subjects
+      </button>
+
+      <button onClick={() => setTheme(t => t==='dark'?'light':'dark')}
+              title="Toggle theme"
+              className="p-2 rounded-md bg-white/10 h-[42px] flex items-center justify-center">
+        {theme === "dark" ? <SunIcon className="w-5 h-5"/> : <MoonIcon className="w-5 h-5"/>}
+      </button>
+
+      <button onClick={exportCSV} 
+              className="px-3 py-2 rounded-md bg-green-600/80 h-[42px] flex items-center gap-2">
+        <ArrowDownTrayIcon className="w-5 h-5"/> CSV
+      </button>
+
+      <button onClick={printReport} 
+              className="px-3 py-2 rounded-md bg-white/10 h-[42px] flex items-center gap-2">
+        <PrinterIcon className="w-5 h-5"/> Print
+      </button>
+    </div>
+  </div>
+
+</motion.div>
+
 
         {/* subject controls dropdown */}
         {showSubjectControls && (
@@ -513,11 +553,17 @@ const deleteSubjectFromStudents = async (subj) => {
                         </div>
                       </th>
                       {allSubjects.map((subj) => visibleSubjects?.[subj] && (
-                        <th key={subj} className="px-4 py-3 text-center cursor-pointer select-none" onClick={() => requestSort(subj)}>
-                          {subj}
-                          {sortConfig.key === subj && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
-                        </th>
-                      ))}
+  <th 
+    key={subj} 
+    onClick={() => requestSort(subj)}
+    className="px-4 py-3 text-center cursor-pointer select-none max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis"
+    title={subj}  
+  >
+    {subj}
+    {sortConfig.key === subj && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
+  </th>
+))}
+
                       <th className="px-4 py-3 text-center cursor-pointer select-none" onClick={() => requestSort("average")}>
                         Avg
                         {sortConfig.key === "average" && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
@@ -707,34 +753,48 @@ const deleteSubjectFromStudents = async (subj) => {
 )}
         {addingSubject && (
   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-xl text-white w-[300px]">
-      <h2 className="text-xl font-semibold text-center mb-4">Add new subject</h2>
+
+    <div className="bg-white/15 backdrop-blur-xl border border-white/20 
+                    p-6 rounded-2xl w-[90%] max-w-sm text-white">
+
+      <h2 className="text-xl font-semibold text-center mb-4">
+        Add new subject
+      </h2>
 
       <input
         type="text"
         placeholder="Subject name..."
         value={newSubjectName}
         onChange={(e) => setNewSubjectName(e.target.value)}
-        className="w-full px-3 py-2 bg-white/20 rounded-md outline-none focus:bg-white/30"
+        className="w-full px-3 py-2 rounded-md bg-white/20
+                   focus:bg-white/25 outline-none transition"
       />
 
       <div className="flex gap-2 mt-4">
-        <button 
-          className="flex-1 py-2 rounded-md bg-green-500/70 hover:bg-green-500"
+
+        {/* simple glass-green button */}
+        <button
+          className="flex-1 py-2 rounded-md bg-green-400/30 hover:bg-green-400/40
+                     backdrop-blur-md transition font-medium"
           onClick={() => addSubjectToStudents(newSubjectName)}
         >
           Add
         </button>
-        <button 
-          className="flex-1 py-2 rounded-md bg-red-500/70 hover:bg-red-500"
+
+        {/* simple glass-red button */}
+        <button
+          className="flex-1 py-2 rounded-md bg-red-400/30 hover:bg-red-400/40
+                     backdrop-blur-md transition font-medium"
           onClick={() => setAddingSubject(false)}
         >
           Cancel
         </button>
+
       </div>
     </div>
   </div>
 )}
+
 
 
         {/* confirm delete */}
