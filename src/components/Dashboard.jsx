@@ -44,6 +44,7 @@ export default function Dashboard() {
 
   // --- core data ---
   const [students, setStudents] = useState([]);
+  const [capacity, setCapacity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
@@ -57,6 +58,9 @@ export default function Dashboard() {
   // filters & UI controls
   const [searchQuery, setSearchQuery] = useState("");
   const [minAverage, setMinAverage] = useState(0);
+
+  const isFull = students.length >= capacity;
+
 
   // localStorage-backed states with safe defaults
   const [visibleSubjects, setVisibleSubjects] = useState(() => {
@@ -91,6 +95,28 @@ export default function Dashboard() {
   // local UI toggles
   const [showSubjectControls, setShowSubjectControls] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // student id for confirm
+
+  useEffect(() => {
+  async function loadGroupData() {
+    try {
+      const groupRef = ref(db, `groups/${groupId}`);
+      const snapshot = await get(groupRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        
+        setStudents(data.students ? Object.values(data.students) : []);
+        setCapacity(data.capacity || 0);   
+      }
+    } catch (err) {
+      setFetchError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadGroupData();
+}, [groupId]);
 
   // --- load students from Realtime Database ---
   useEffect(() => {
@@ -720,7 +746,20 @@ const deleteSubjectFromStudents = async (subj) => {
     </div>
 
     <div className="flex flex-col gap-2">
-      <button className="px-3 py-2 bg-blue-600 rounded-md" onClick={() => { setAddingStudent(true); setNewStudent({ name: "" }); }}>Add Student</button>
+      <button
+  disabled={isFull}
+  className={`px-3 py-2 rounded-md 
+    ${isFull ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+  onClick={()=>{
+    if (isFull) return;
+    setAddingStudent(true);
+    setNewStudent({ name: "" });
+  }}
+>
+  Add Student
+</button>
+
+
       <button className="px-3 py-2 bg-gray-600 rounded-md" onClick={() => setAddingSubject(true)}>Add Subject</button>
     </div>
   </div>
